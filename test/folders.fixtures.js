@@ -1,38 +1,16 @@
 function makeFoldersArray() {
     return [
-        {
-            id: 1,
-            name: 'Important'
-        },
-        {
-            id: 2,
-            name: 'Super'
-        },
-        {
-            id: 3,
-            name: 'Spangley'
-        }
+      {
+        id: 1,
+        name: 'Test Folder 1',
+        modified: '2020-08-25T16:28:40.253Z'
+      },
+      {
+        id: 2,
+        name: 'Test Folder 2',
+        modified: '2020-08-24T16:28:40.253Z'
+      }
     ]
-}
-
-function makeMaliciousFolder() {
-    const maliciousFolder = {
-        id: 911,
-        name: 'Naughty naughty very naughty <script>alert("xss");</script>'
-    }
-
-    const expectedFolder = {
-        ... maliciousFolder,
-        name: 'Naughty naughty very naughty &lt;script&gt;alert(\"xss\");&lt;/script&gt;'
-    }
-
-    return {
-        maliciousFolder,
-        expectedFolder
-    }
-}
-
-module.exports = {
-    makeFoldersArray,
-    makeMaliciousFolder
-}
+  }
+  
+  module.exports = { makeFoldersArray }

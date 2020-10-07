@@ -6,29 +6,34 @@ const FoldersService = require('./folders-service');
 const foldersRouter = express.Router();
 const jsonParser = express.json();
 
+
+const serializeFolder = folder => ({
+    id: folder.id,
+    name: xss(folder.name),
+    modified: folder.modified
+  })
+
 foldersRouter
     .route('/')
     .get((req, res, next) => {
         const knexInstance = req.app.get('db')
         FoldersService.getAllFolders(knexInstance)
             .then(folders => {
-                res.json(folders.map(FoldersService.serializeFolder))
+                res.json(folders.map(serializeFolder))
             })
             .catch(next)
     })
     .post(jsonParser, (req, res, next) => {
-        const knexInstance = req.app.get('db')
         const { name } = req.body
         const newFolder = { name }
+        const knexInstance = req.app.get('db')
 
-        for(const [key, value] of Object.entries(newFolder)) {
-            if(value === null) {
-                return res.status(400).json({
-                    error: {
-                        message: `Missing '${key}' in request body`
-                    }
-                })
-            }
+        if(!newFolder.name) {
+            return res.status(400).json({
+                error: {
+                    message: `Name is required`
+                }
+            })
         }
 
         FoldersService.insertFolder(
@@ -39,7 +44,7 @@ foldersRouter
                 res
                     .status(201)
                     .location(path.posix.join(req.originalUrl, `/${folder.id}`))
-                    .json(FoldersService.serializeFolder(folder))
+                    .json(serializeFolder(folder))
             })
             .catch(next)
 
@@ -69,7 +74,7 @@ foldersRouter
             .catch(next)
     })
     .get((req, res, next) => {
-        res.json(FoldersService.serializeFolder(res.folder))
+        res.json(serializeFolder(res.folder))
     })
     .delete((req, res, next) => {
         const knexInstance = req.app.get('db')

@@ -1,16 +1,11 @@
 const knex = require('knex');
 const app = require('../src/app')
-const helpers = require('./test-helpers')
-const { makeNotesArray, makeMaliciousNote } = require('./notes.fixtures');
-const { expect } = require('chai');
+const { makeFoldersArray } = require('./folders.fixtures')
+const { makeNotesArray } = require('./notes.fixtures')
 
-describe('Notes Endpoints', function() {
+describe.only('Notes Endpoints', function() {
 
     let db;
-
-    const {
-        testFolders
-    } = helpers.makeNotefulFixtures()
 
     before('make knex instance', () => {
         db = knex({
@@ -19,17 +14,10 @@ describe('Notes Endpoints', function() {
         })
         app.set('db', db)
     });
+
     after('disconnect from db', () => db.destroy());
     before('clean the table', () => db.raw('TRUNCATE noteful_folders, noteful_notes RESTART IDENTITY CASCADE'))
     afterEach('cleanup',() => db.raw('TRUNCATE noteful_folders, noteful_notes RESTART IDENTITY CASCADE'))
-
-    beforeEach('insert tables', () => 
-        helpers.seedNotefulTables(
-            db,
-            testFolders,
-            testNotes
-    ))
-
 
     describe(`Get /api/notes`, () => {
 
@@ -43,40 +31,25 @@ describe('Notes Endpoints', function() {
         })
 
         context('Given there are notes in the database', () => {
-
+            const testFolders = makeFoldersArray()
             const testNotes = makeNotesArray()
+
             beforeEach('insert notes', () => {
                 return db
-                    .into('noteful_notes')
-                    .insert(testNotes)
+                    .into('noteful_folders')
+                    .insert(testFolders)
+                    .then(() => {
+                        return db
+                            .into('noteful_notes')
+                            .insert(testNotes)
+                    })
             })
-            it(`gets notes with 200 and all of the notes`, () => {
+
+            it(`responds with 200 and all of the notes`, () => {
                 return supertest(app)
                     .get('/api/notes')
                     .expect(200, testNotes)
             })
-        })
-
-        context('Given an XSS attack note', () => {
-
-            const { maliciousNote, expectedNote } = makeMaliciousNote()
-
-            beforeEach('insert malicious note', () => {
-                return db
-                    .into('noteful_notes')
-                    .insert([ maliciousNote ])
-            })
-
-            it('removes XSS attack content', () => {
-                return supertest(app)
-                    .get('/api/notes')
-                    .expect(200)
-                    .expect(res => {
-                        expect(res.body[0].name).to.eql(expectedNote.name)
-                        expect(res.body[0].content).to.eql(expectedNote.content)
-                    })
-            })
-
         })
 
     })
@@ -97,12 +70,18 @@ describe('Notes Endpoints', function() {
 
         context('Given there are notes in the database', () => {
 
+            const testFolders = makeFoldersArray()
             const testNotes = makeNotesArray()
 
             beforeEach('insert notes', () => {
                 return db
-                    .into('noteful_notes')
-                    .insert(testNotes)
+                    .into('noteful_folders')
+                    .insert(testFolders)
+                    .then(() => {
+                        return db
+                            .into('noteful_notes')
+                            .insert(testNotes)
+                    })
             })
 
             it(`responds with 200 and the specified note`, () => {
@@ -115,48 +94,26 @@ describe('Notes Endpoints', function() {
 
         })
 
-        context(`Given an XSS attack note`, () => {
-
-            const { maliciousNote, expectedNote } = makeMaliciousNote()
-
-            beforeEach('insert malicious note', () => {
-                return db
-                    .into('noteful_notes')
-                    .insert([ maliciousNote ])
-            })
-
-            it('removes XSS attack content', () => {
-                return supertest(app)
-                    .get(`/api/notes/${maliciousNote.id}`)
-                    .expect(200)
-                    .expect(res => {
-                        expect(res.body.name).to.eql(expectedNote.name)
-                    })
-            })
-        })
-
     })
 
 
     describe(`POST /api/notes`, () => {
+    
+        const testFolders = makeFoldersArray()
 
-        beforeEach('insert folders', () => 
-            helpers.seedNotefulTables(
-                db,
-                testFolders
-            )
-        )
+        beforeEach('insert folders', () => {
+            return db
+                .into('noteful_folders')
+                .insert(testFolders)
+        })
 
         it(`creates a note, responding with 201 and new note`, function() {
-
             this.retries(3)
-
-            const testFolder = testFolders[0]
 
             const newNote = {
                 name: 'Test new note',
                 content: 'Test new content ....',
-                folder_id: testFolder.id
+                folder_id: 2
             }
 
             return supertest(app)
@@ -191,15 +148,16 @@ describe('Notes Endpoints', function() {
                 )
         })
 
-        // const requireFields = ['name']
+        // const requireFields = ['name', 'content', 'folder_id']
 
         // requireFields.forEach(field => {
         //     const newNote = {
-        //         name: 'Test new note'
+        //         name: 'Test new note',
+        //         content: 'test content ....',
+        //         modified: new Date(),
+        //         folder_id: 2,
         //     }
-            
         //     it(`responds with 400 and an error message when the '${field}' is missing`, () => {
-
         //         delete newNote[field]
 
         //         return supertest(app)
@@ -213,22 +171,6 @@ describe('Notes Endpoints', function() {
         //     })
 
         // })
-
-        
-        it(`removes XSS attack content from response`, () => {
-
-            const { maliciousNote, expectedNote } = makeMaliciousNote()
-
-            return supertest(app)
-                .post('/api/notes')
-                .send(maliciousNote)
-                .expect(201)
-                .expect(res => {
-                    expect(res.body.name).to.eql(expectedNote.name)
-                })
-
-        })
-
     })
 
 
@@ -248,12 +190,20 @@ describe('Notes Endpoints', function() {
 
         context('Given there are notes in the database', () => {
 
+            const testFolders = makeFoldersArray()
             const testNotes = makeNotesArray()
 
             beforeEach('insert notes', () => {
                 return db
-                    .into('noteful_notes')
-                    .insert(testNotes)
+                .into('noteful_folders')
+                .insert(testFolders)
+                .then(() => {
+                    return db
+                        .into('noteful_notes')
+                        .insert(testNotes)
+                })
+                
+                
             })
 
             it(`responds with 204 and removes the note`, () => {
@@ -293,12 +243,18 @@ describe('Notes Endpoints', function() {
 
         context(`Given there are notes in the database`, () => {
 
+            const testFolders = makeFoldersArray()
             const testNotes = makeNotesArray()
 
             beforeEach('insert notes', () => {
                 return db
-                    .into('noteful_notes')
-                    .insert(testNotes)
+                .into('noteful_folders')
+                .insert(testFolders)
+                .then(() => {
+                    return db
+                        .into('noteful_notes')
+                        .insert(testNotes)
+                })
             })
 
             it(`responds with 204 and updates the note`, () => {
@@ -335,7 +291,7 @@ describe('Notes Endpoints', function() {
                     .send({ irrelevantField: 'foo' })
                     .expect(400, {
                         error: {
-                            message: `Request body must contain 'name'`
+                            message: `Request body must contain 'name', 'modified', 'folder_id', or 'content'`
                         }
                     })
             })
